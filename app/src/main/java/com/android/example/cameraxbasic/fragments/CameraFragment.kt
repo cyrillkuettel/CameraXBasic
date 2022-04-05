@@ -316,7 +316,11 @@ class CameraFragment : Fragment() {
                         cameraExecutor,
                         QRCodeImageAnalyzer(object : QRCodeFoundListener1 {
                             override fun onQRCodeFound(qrCode: String?) {
-                                Log.i(TAG, "onQRCodeFound")
+                                // Log.i(TAG, "onQRCodeFound")
+                                Log.i(TAG, "let's take photo")
+                                takePhotoOnce()
+
+
                             }
 
                             override fun qrCodeNotFound() {
@@ -470,7 +474,7 @@ class CameraFragment : Fragment() {
         // In the background, load latest photo taken (if any) for gallery thumbnail
         lifecycleScope.launch(Dispatchers.IO) {
             outputDirectory.listFiles { file ->
-                EXTENSION_WHITELIST.contains(file.extension.toUpperCase(Locale.ROOT))
+                EXTENSION_WHITELIST.contains(file.extension.uppercase(Locale.ROOT))
             }?.maxOrNull()?.let {
                 setGalleryThumbnail(Uri.fromFile(it))
             }
@@ -478,28 +482,47 @@ class CameraFragment : Fragment() {
 
         // Listener for button used to capture photo
         cameraUiContainerBinding?.cameraCaptureButton?.setOnClickListener {
+            takePhotoOnce()
+        }
 
-            // Get a stable reference of the modifiable image capture use case
-            imageCapture?.let { imageCapture ->
 
-                // Create output file to hold the image
-                val photoFile = createFile(outputDirectory, FILENAME, PHOTO_EXTENSION)
 
-                // Setup image capture metadata
-                val metadata = Metadata().apply {
+        // Listener for button used to view the most recent photo
+        cameraUiContainerBinding?.photoViewButton?.setOnClickListener {
+            // Only navigate when the gallery has photos
+            if (true == outputDirectory.listFiles()?.isNotEmpty()) {
+                Navigation.findNavController(
+                        requireActivity(), R.id.fragment_container
+                ).navigate(CameraFragmentDirections
+                        .actionCameraToGallery(outputDirectory.absolutePath))
+            }
+        }
+    }
 
-                    // Mirror image when using the front camera
-                    isReversedHorizontal = lensFacing == CameraSelector.LENS_FACING_FRONT
-                }
 
-                // Create output options object which contains file + metadata
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile)
-                        .setMetadata(metadata)
-                        .build()
+    fun takePhotoOnce() {
+        Log.d(TAG , "starting takePhotoOnce")
+        // Get a stable reference of the modifiable image capture use case
+        imageCapture?.let { imageCapture ->
+            Log.d(TAG , "starting capture process")
+            // Create output file to hold the image
+            val photoFile = createFile(outputDirectory, FILENAME, PHOTO_EXTENSION)
 
-                // Setup image capture listener which is triggered after photo has been taken
-                imageCapture.takePicture(
-                        outputOptions, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
+            // Setup image capture metadata
+            val metadata = Metadata().apply {
+
+                // Mirror image when using the front camera
+                isReversedHorizontal = lensFacing == CameraSelector.LENS_FACING_FRONT
+            }
+
+            // Create output options object which contains file + metadata
+            val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile)
+                .setMetadata(metadata)
+                .build()
+
+            // Setup image capture listener which is triggered after photo has been taken
+            imageCapture.takePicture(
+                outputOptions, cameraExecutor, object : ImageCapture.OnImageSavedCallback {
                     override fun onError(exc: ImageCaptureException) {
                         Log.e(TAG, "Photo capture failed: ${exc.message}", exc)
                     }
@@ -518,7 +541,7 @@ class CameraFragment : Fragment() {
                         // so if you only target API level 24+ you can remove this statement
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
                             requireActivity().sendBroadcast(
-                                    Intent(android.hardware.Camera.ACTION_NEW_PICTURE, savedUri)
+                                Intent(android.hardware.Camera.ACTION_NEW_PICTURE, savedUri)
                             )
                         }
 
@@ -526,44 +549,29 @@ class CameraFragment : Fragment() {
                         // unnecessary but otherwise other apps will not be able to access our
                         // images unless we scan them using [MediaScannerConnection]
                         val mimeType = MimeTypeMap.getSingleton()
-                                .getMimeTypeFromExtension(savedUri.toFile().extension)
+                            .getMimeTypeFromExtension(savedUri.toFile().extension)
                         MediaScannerConnection.scanFile(
-                                context,
-                                arrayOf(savedUri.toFile().absolutePath),
-                                arrayOf(mimeType)
+                            context,
+                            arrayOf(savedUri.toFile().absolutePath),
+                            arrayOf(mimeType)
                         ) { _, uri ->
                             Log.d(TAG, "Image capture scanned into media store: $uri")
                         }
                     }
                 })
 
-                // We can only change the foreground Drawable using API level 23+ API
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // We can only change the foreground Drawable using API level 23+ API
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 
-                    // Display flash animation to indicate that photo was captured
-                    fragmentCameraBinding.root.postDelayed({
-                        fragmentCameraBinding.root.foreground = ColorDrawable(Color.WHITE)
-                        fragmentCameraBinding.root.postDelayed(
-                                { fragmentCameraBinding.root.foreground = null }, ANIMATION_FAST_MILLIS)
-                    }, ANIMATION_SLOW_MILLIS)
-                }
-            }
-        }
-
-
-
-        // Listener for button used to view the most recent photo
-        cameraUiContainerBinding?.photoViewButton?.setOnClickListener {
-            // Only navigate when the gallery has photos
-            if (true == outputDirectory.listFiles()?.isNotEmpty()) {
-                Navigation.findNavController(
-                        requireActivity(), R.id.fragment_container
-                ).navigate(CameraFragmentDirections
-                        .actionCameraToGallery(outputDirectory.absolutePath))
+                // Display flash animation to indicate that photo was captured
+                fragmentCameraBinding.root.postDelayed({
+                    fragmentCameraBinding.root.foreground = ColorDrawable(Color.WHITE)
+                    fragmentCameraBinding.root.postDelayed(
+                        { fragmentCameraBinding.root.foreground = null }, ANIMATION_FAST_MILLIS)
+                }, ANIMATION_SLOW_MILLIS)
             }
         }
     }
-
 
 
     /** Returns true if the device has an available back camera. False otherwise */
