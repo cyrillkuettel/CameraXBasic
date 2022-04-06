@@ -95,6 +95,8 @@ class CameraFragment : Fragment() {
     private lateinit var outputDirectory: File
     private lateinit var broadcastManager: LocalBroadcastManager
 
+    private var lastPhotoCount: Int = 0
+
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var preview: Preview? = null
@@ -103,6 +105,8 @@ class CameraFragment : Fragment() {
     private var camera: Camera? = null
     private var cameraProvider: ProcessCameraProvider? = null
     private lateinit var windowManager: WindowManager
+
+
 
     private val displayManager by lazy {
         requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -316,11 +320,11 @@ class CameraFragment : Fragment() {
                         cameraExecutor,
                         QRCodeImageAnalyzer(object : QRCodeFoundListener1 {
                             override fun onQRCodeFound(qrCode: String?) {
-                                // Log.i(TAG, "onQRCodeFound")
-                                Log.i(TAG, "let's take photo")
-                                takePhotoOnce()
-
-
+                                Log.i(TAG, "onQRCodeFound")
+                                if (lastPhotoCount == 0 ) { // ensures to only take one photo
+                                    lastPhotoCount++
+                                    takePhotoOnce()
+                                }
                             }
 
                             override fun qrCodeNotFound() {
@@ -346,6 +350,7 @@ class CameraFragment : Fragment() {
             Log.e(TAG, "Use case binding failed", exc)
         }
     }
+
 
     private fun observeCameraState(cameraInfo: CameraInfo) {
         cameraInfo.cameraState.observe(viewLifecycleOwner) { cameraState ->

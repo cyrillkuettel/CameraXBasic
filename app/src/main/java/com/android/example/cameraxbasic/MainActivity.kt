@@ -66,6 +66,8 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onKeyDown(keyCode, event)
         }
+
+
     }
 
     override fun onBackPressed() {
@@ -76,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
         }
+
     }
 
     companion object {
