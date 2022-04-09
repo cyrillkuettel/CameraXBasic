@@ -49,11 +49,15 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.Navigation
+import androidx.room.Room
 import androidx.window.WindowManager
 import com.android.example.cameraxbasic.KEY_EVENT_ACTION
 import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
 import com.android.example.cameraxbasic.MainActivity
 import com.android.example.cameraxbasic.R
+import com.android.example.cameraxbasic.database.Plant
+import com.android.example.cameraxbasic.database.PlantRoomDatabase
+import com.android.example.cameraxbasic.database.PlantRoomDatabase.Companion.getDatabase
 import com.android.example.cameraxbasic.databinding.CameraUiContainerBinding
 import com.android.example.cameraxbasic.databinding.FragmentCameraBinding
 import com.android.example.cameraxbasic.utils.ANIMATION_FAST_MILLIS
@@ -65,9 +69,9 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.multi.qrcode.QRCodeMultiReader
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import java.io.File
+import java.lang.Runnable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -324,6 +328,26 @@ class CameraFragment : Fragment() {
                                 if (lastPhotoCount == 0 ) { // ensures to only take one photo
                                     lastPhotoCount++
                                     takePhotoOnce()
+
+                                    val db = context?.let { it1 -> getDatabase(it1) }
+
+                                    val plantDao = db?.plantDao()
+                                    val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object
+                                    val deferred = GlobalScope.async {
+
+                                        plantDao?.insert(plant)
+                                        val plants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
+                                        if (plants.isNotEmpty()) {
+                                            Log.i(TAG, "plants list filled")
+                                        } else {
+                                            Log.i(TAG, "plants list empty!")
+
+                                        }
+
+                                    }
+
+
+
                                 }
                             }
 
