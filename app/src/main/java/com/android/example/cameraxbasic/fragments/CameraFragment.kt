@@ -49,14 +49,12 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.Navigation
-import androidx.room.Room
 import androidx.window.WindowManager
 import com.android.example.cameraxbasic.KEY_EVENT_ACTION
 import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
 import com.android.example.cameraxbasic.MainActivity
 import com.android.example.cameraxbasic.R
 import com.android.example.cameraxbasic.database.Plant
-import com.android.example.cameraxbasic.database.PlantRoomDatabase
 import com.android.example.cameraxbasic.database.PlantRoomDatabase.Companion.getDatabase
 import com.android.example.cameraxbasic.databinding.CameraUiContainerBinding
 import com.android.example.cameraxbasic.databinding.FragmentCameraBinding
@@ -68,11 +66,12 @@ import com.bumptech.glide.request.RequestOptions
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
-import com.google.zxing.multi.qrcode.QRCodeMultiReader
 import com.google.zxing.qrcode.QRCodeReader
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import java.io.File
-import java.lang.Runnable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -100,7 +99,8 @@ class CameraFragment : Fragment() {
     private lateinit var outputDirectory: File
     private lateinit var broadcastManager: LocalBroadcastManager
 
-    private var lastPhotoCount: Int = 0
+    private var QRCodeWaitingTime: Int = 5000
+    private var lastTime: Long = 0
 
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
@@ -314,7 +314,7 @@ class CameraFragment : Fragment() {
                 // .setTargetAspectRatio(screenAspectRatio)
                 // Set initial target rotation, we will have to call this again if rotation changes
                 // during the lifecycle of this use case
-                 .setTargetRotation(rotation)
+                .setTargetRotation(rotation)
                 .setTargetResolution(Size(1280, 720))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST) // from Qr
                 .build()
@@ -326,30 +326,9 @@ class CameraFragment : Fragment() {
                         QRCodeImageAnalyzer(object : QRCodeFoundListener1 {
                             override fun onQRCodeFound(qrCode: String?) {
                                 Log.i(TAG, "onQRCodeFound")
-                                if (lastPhotoCount == 0 ) { // ensures to only take one photo
-                                    lastPhotoCount++
+                                if (waitingTimeOver()) {
                                     takePhotoOnce()
-
-                                    val db = context?.let { it1 -> getDatabase(it1) }
-
-                                    val plantDao = db?.plantDao()
-                                    val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object
-                                    val deferred = GlobalScope.async {
-
-                                        plantDao?.insert(plant)
-                                        val plants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
-                                        if (plants.isNotEmpty()) {
-                                            Log.i(TAG, "plants list filled. Printing qrString")
-                                            Log.i(TAG, plants[0].qrString)
-                                        } else {
-                                            Log.i(TAG, "plants list empty!")
-
-                                        }
-
-                                    }
-
-
-
+                                    insertQRCodeIfNotExists(qrCode)
                                 }
                             }
 
@@ -376,6 +355,45 @@ class CameraFragment : Fragment() {
             Log.e(TAG, "Use case binding failed", exc)
         }
     }
+
+    private fun insertQRCodeIfNotExists(qrCode: String?) {
+        val db = context?.let { it1 -> getDatabase(it1) }
+        val plantDao = db?.plantDataAccessObject()
+        val allPlants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
+        if (QRCodeAlreadyExists(allPlants, qrCode)) {
+            Log.d(TAG, "QR-Code '$qrCode' Already exists, not inserting.")
+            return
+        }
+
+
+        val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object
+
+        GlobalScope.async {
+
+            plantDao?.insert(plant)
+            if (allPlants.isNotEmpty()) {
+                Log.d(TAG, "plants list filled. Printing qrString")
+                Log.d(TAG, allPlants[0].qrString)
+            } else {
+                Log.d(TAG, "plants list empty!")
+            }
+
+        }
+    }
+
+    private fun QRCodeAlreadyExists(plants : List<Plant>, qrCode: String?) : Boolean {
+        return plants.any{ it.qrString == qrCode }
+    }
+
+    private fun waitingTimeOver() : Boolean {
+        if (System.currentTimeMillis() - lastTime > QRCodeWaitingTime) {
+            lastTime = System.currentTimeMillis()
+          return true
+        }
+        return false
+    }
+
+
 
 
     private fun observeCameraState(cameraInfo: CameraInfo) {

@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase
 @Database(entities = arrayOf(Plant::class), version = 1, exportSchema = false)
 abstract class PlantRoomDatabase : RoomDatabase() {
 
-    abstract fun plantDao(): PlantDao
+    abstract fun plantDataAccessObject(): PlantDao
 
     companion object {
         // Singleton prevents multiple instances of database opening at the
