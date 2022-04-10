@@ -69,6 +69,7 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.multi.qrcode.QRCodeMultiReader
+import com.google.zxing.qrcode.QRCodeReader
 import kotlinx.coroutines.*
 import java.io.File
 import java.lang.Runnable
@@ -338,7 +339,8 @@ class CameraFragment : Fragment() {
                                         plantDao?.insert(plant)
                                         val plants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
                                         if (plants.isNotEmpty()) {
-                                            Log.i(TAG, "plants list filled")
+                                            Log.i(TAG, "plants list filled. Printing qrString")
+                                            Log.i(TAG, plants[0].qrString)
                                         } else {
                                             Log.i(TAG, "plants list empty!")
 
@@ -634,7 +636,7 @@ class CameraFragment : Fragment() {
 
                 val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
                 try {
-                    val result = QRCodeMultiReader().decode(binaryBitmap)
+                    val result = QRCodeReader().decode(binaryBitmap)
                     listener?.onQRCodeFound(result.text)
                 } catch (e: Exception ) {
                     listener?.qrCodeNotFound()
