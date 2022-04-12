@@ -18,10 +18,8 @@ package com.android.example.cameraxbasic.fragments
 
 
 import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.ImageFormat
@@ -33,7 +31,6 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
-import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -50,8 +47,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.Navigation
 import androidx.window.WindowManager
-import com.android.example.cameraxbasic.KEY_EVENT_ACTION
-import com.android.example.cameraxbasic.KEY_EVENT_EXTRA
 import com.android.example.cameraxbasic.MainActivity
 import com.android.example.cameraxbasic.R
 import com.android.example.cameraxbasic.database.Plant
@@ -60,20 +55,20 @@ import com.android.example.cameraxbasic.databinding.CameraUiContainerBinding
 import com.android.example.cameraxbasic.databinding.FragmentCameraBinding
 import com.android.example.cameraxbasic.utils.ANIMATION_FAST_MILLIS
 import com.android.example.cameraxbasic.utils.ANIMATION_SLOW_MILLIS
-import com.android.example.cameraxbasic.utils.simulateClick
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
-import java.lang.Runnable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -99,7 +94,11 @@ class CameraFragment : Fragment() {
 
     private var QRCodeWaitingTime: Int = 5000
     private var lastTime: Long = 0
+
     private var dataBaseThread: Thread = clearAllTablesThread()
+    private var writeQRToDatabaseThread: Thread? = null
+
+    val queue = LinkedBlockingQueue<Long>()
 
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
@@ -186,8 +185,8 @@ class CameraFragment : Fragment() {
     }
 
     private fun clearAllTablesThread() : Thread {
-        Log.i(TAG, "createDemoThread")
-        return object : Thread("hsluDemoThread") {
+        Log.i(TAG, "clearAllTablesThread")
+        return object : Thread("clearAllTables") {
 
             override fun run() {
                 try {
@@ -337,7 +336,7 @@ class CameraFragment : Fragment() {
                             override fun onQRCodeFound(qrCode: String?) {
                                 Log.i(TAG, "onQRCodeFound")
                                 if (waitingTimeOver()) {
-                                    insertQRCodeIfNotExists(qrCode)
+                                    createQRCodeInsertionThread(qrCode).start()
                                     takePhotoOnce()
                                 }
                             }
@@ -365,33 +364,55 @@ class CameraFragment : Fragment() {
         }
     }
 
+    fun createQRCodeInsertionThread(qrCode: String?) : Thread {
+        Log.i(TAG, "createQRCodeInsertionThread")
+        return object : Thread("createQRCodeInsertionThread") {
+            override fun run() {
+                try {
 
-    private fun insertQRCodeIfNotExists(qrCode: String?) {
+                queue.put(insertQRCodeAndReturnId(qrCode))
+
+                } catch (e: InterruptedException) {
+                    Log.d(TAG, "caught Interrupted exception!")
+                }
+            }
+        }
+    }
+
+
+    private fun insertQRCodeAndReturnId(qrCode: String?) : Long {
         val db = context?.let { it1 -> getDatabase(it1) }
         val plantDao = db?.plantDataAccessObject()
         var allPlants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
 
         if (QRCodeAlreadyExists(allPlants, qrCode)) {
             Log.d(TAG, "QR-Code '$qrCode' Already exists, not inserting.")
-            return
+          return -1L
         }
 
-        val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object with this QR Code.
 
-        GlobalScope.async {
+        // another idea would be to launch the takePhotoOnce() here which then returns a value.
+        // This would probably be blocking.
 
-            plantDao?.insert(plant)
-            allPlants = plantDao?.getAll() ?: Collections.emptyList()
+        // The Image URI will be added a later point thus for now is set to 'not-populated'
+        val plant = qrCode?.let { it1 -> Plant(it1, "not-populated") }
 
-            //debugging
-            if (allPlants.isNotEmpty()) {
-                Log.d(TAG, "plants list filled. Printing qrString")
-                Log.d(TAG, allPlants[0].qrString)
-            } else {
-                Log.d(TAG, "plants list empty!")
-            }
+        val _id = plantDao?.insert(plant) ?: -1L
 
+        allPlants = plantDao?.getAll() ?: Collections.emptyList()
+
+        //debugging
+        if (allPlants.isNotEmpty()) {
+            Log.d(TAG, "Inserted plant object with qrCode. Printing qrString")
+            Log.d(TAG, allPlants[0].qrString)
+        } else {
+            Log.d(TAG, "plants list empty!")
         }
+        if (_id == -1L) {
+            Log.d(TAG, "Somehow failed to obtain id from inserted plant object. ")
+        }
+        return _id
+
     }
 
     private fun QRCodeAlreadyExists(plants : List<Plant>, qrCode: String?) : Boolean {
@@ -562,6 +583,8 @@ class CameraFragment : Fragment() {
     }
 
 
+
+
     fun takePhotoOnce() {
         // Get a stable reference of the modifiable image capture use case
         imageCapture?.let { imageCapture ->
@@ -591,6 +614,8 @@ class CameraFragment : Fragment() {
                     override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                         val savedUri = output.savedUri ?: Uri.fromFile(photoFile)
                         Log.d(TAG, "Photo capture succeeded: $savedUri")
+
+                        savePictureUriToPlantObject(savedUri.toString()).start()
 
                         // We can only change the foreground Drawable using API level 23+ API
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -630,6 +655,27 @@ class CameraFragment : Fragment() {
                     fragmentCameraBinding.root.postDelayed(
                         { fragmentCameraBinding.root.foreground = null }, ANIMATION_FAST_MILLIS)
                 }, ANIMATION_SLOW_MILLIS)
+            }
+        }
+    }
+
+    fun savePictureUriToPlantObject(savedUri: String) : Thread {
+        Log.i(TAG, "savePictureUriToPlantObject")
+        return object : Thread("savePictureUriToPlantObject") {
+            override fun run() {
+                try {
+                    val db = context?.let { it -> getDatabase(it) }
+                    val plantDao = db?.plantDataAccessObject()
+                    val ID_currentPlantObject = queue.take()
+
+                    if (ID_currentPlantObject == -1L) {
+                        Log.e(TAG, "ID_currentPlantObject == -1")
+                    }
+                    plantDao?.update(ID_currentPlantObject, savedUri)
+
+                } catch (e: InterruptedException) {
+                    Log.d(TAG, "caught Interrupted exception!")
+                }
             }
         }
     }
