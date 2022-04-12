@@ -67,11 +67,9 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import java.io.File
+import java.lang.Runnable
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -101,6 +99,7 @@ class CameraFragment : Fragment() {
 
     private var QRCodeWaitingTime: Int = 5000
     private var lastTime: Long = 0
+    private var dataBaseThread: Thread = clearDataBase()
 
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
@@ -170,6 +169,7 @@ class CameraFragment : Fragment() {
         // Unregister the broadcast receivers and listeners
         broadcastManager.unregisterReceiver(volumeDownReceiver)
         displayManager.unregisterDisplayListener(displayListener)
+
     }
 
     override fun onCreateView(
@@ -197,9 +197,32 @@ class CameraFragment : Fragment() {
         }
     }
 
+    private fun clearDataBase() : Thread {
+        Log.i(TAG, "createDemoThread")
+        return object : Thread("hsluDemoThread") {
+
+            override fun run() {
+                try {
+                    val db = context?.let { it -> getDatabase(it) }
+                    db?.clearAllTables()
+                } catch (e: InterruptedException) {
+                    Log.d(TAG, "caught Interrupted exception!")
+                }
+            }
+        }
+    }
+
     @SuppressLint("MissingPermission")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // only for debugging: clear database before starting
+        if (!dataBaseThread.isAlive) {
+            dataBaseThread = clearDataBase()
+            dataBaseThread.start()
+        } else {
+            Log.e(TAG, "Database thread is already alive.")
+        }
+
 
         // Initialize our background executor
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -231,6 +254,8 @@ class CameraFragment : Fragment() {
             // Set up the camera and its use cases
             setUpCamera()
         }
+
+
     }
 
     /**
@@ -327,8 +352,8 @@ class CameraFragment : Fragment() {
                             override fun onQRCodeFound(qrCode: String?) {
                                 Log.i(TAG, "onQRCodeFound")
                                 if (waitingTimeOver()) {
-                                    takePhotoOnce()
                                     insertQRCodeIfNotExists(qrCode)
+                                    takePhotoOnce()
                                 }
                             }
 
@@ -336,7 +361,6 @@ class CameraFragment : Fragment() {
                                 // nope
                             }
                         }))
-
                 }
 
         // Must unbind the use-cases before rebinding them
@@ -356,21 +380,23 @@ class CameraFragment : Fragment() {
         }
     }
 
+
     private fun insertQRCodeIfNotExists(qrCode: String?) {
         val db = context?.let { it1 -> getDatabase(it1) }
         val plantDao = db?.plantDataAccessObject()
-        val allPlants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
+        var allPlants: List<Plant> = plantDao?.getAll() ?: Collections.emptyList()
+
         if (QRCodeAlreadyExists(allPlants, qrCode)) {
             Log.d(TAG, "QR-Code '$qrCode' Already exists, not inserting.")
             return
         }
 
-
-        val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object
+        val plant = qrCode?.let { it1 -> Plant(it1) } // create a Plant Object with this QR Code.
 
         GlobalScope.async {
 
             plantDao?.insert(plant)
+            allPlants = plantDao?.getAll() ?: Collections.emptyList()
             if (allPlants.isNotEmpty()) {
                 Log.d(TAG, "plants list filled. Printing qrString")
                 Log.d(TAG, allPlants[0].qrString)
@@ -550,7 +576,6 @@ class CameraFragment : Fragment() {
 
 
     fun takePhotoOnce() {
-        Log.d(TAG , "starting takePhotoOnce")
         // Get a stable reference of the modifiable image capture use case
         imageCapture?.let { imageCapture ->
             Log.d(TAG , "starting capture process")
