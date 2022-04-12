@@ -99,7 +99,7 @@ class CameraFragment : Fragment() {
 
     private var QRCodeWaitingTime: Int = 5000
     private var lastTime: Long = 0
-    private var dataBaseThread: Thread = clearDataBase()
+    private var dataBaseThread: Thread = clearAllTablesThread()
 
     private var displayId: Int = -1
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
@@ -119,17 +119,6 @@ class CameraFragment : Fragment() {
     /** Blocking camera operations are performed using this executor */
     private lateinit var cameraExecutor: ExecutorService
 
-    /** Volume down button receiver used to trigger shutter */
-    private val volumeDownReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.getIntExtra(KEY_EVENT_EXTRA, KeyEvent.KEYCODE_UNKNOWN)) {
-                // When the volume down button is pressed, simulate a shutter button click
-                KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                    cameraUiContainerBinding?.cameraCaptureButton?.simulateClick()
-                }
-            }
-        }
-    }
 
     /**
      * We need a display listener for orientation changes that do not trigger a configuration
@@ -167,7 +156,6 @@ class CameraFragment : Fragment() {
         cameraExecutor.shutdown()
 
         // Unregister the broadcast receivers and listeners
-        broadcastManager.unregisterReceiver(volumeDownReceiver)
         displayManager.unregisterDisplayListener(displayListener)
 
     }
@@ -197,7 +185,7 @@ class CameraFragment : Fragment() {
         }
     }
 
-    private fun clearDataBase() : Thread {
+    private fun clearAllTablesThread() : Thread {
         Log.i(TAG, "createDemoThread")
         return object : Thread("hsluDemoThread") {
 
@@ -217,7 +205,7 @@ class CameraFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         // only for debugging: clear database before starting
         if (!dataBaseThread.isAlive) {
-            dataBaseThread = clearDataBase()
+            dataBaseThread = clearAllTablesThread()
             dataBaseThread.start()
         } else {
             Log.e(TAG, "Database thread is already alive.")
@@ -229,9 +217,6 @@ class CameraFragment : Fragment() {
 
         broadcastManager = LocalBroadcastManager.getInstance(view.context)
 
-        // Set up the intent filter that will receive events from our main activity
-        val filter = IntentFilter().apply { addAction(KEY_EVENT_ACTION) }
-        broadcastManager.registerReceiver(volumeDownReceiver, filter)
 
         // Every time the orientation of device changes, update rotation for use cases
         displayManager.registerDisplayListener(displayListener, null)
@@ -397,6 +382,8 @@ class CameraFragment : Fragment() {
 
             plantDao?.insert(plant)
             allPlants = plantDao?.getAll() ?: Collections.emptyList()
+
+            //debugging
             if (allPlants.isNotEmpty()) {
                 Log.d(TAG, "plants list filled. Printing qrString")
                 Log.d(TAG, allPlants[0].qrString)
