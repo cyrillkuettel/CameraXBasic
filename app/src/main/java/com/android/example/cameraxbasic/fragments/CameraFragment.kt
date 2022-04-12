@@ -564,10 +564,12 @@ class CameraFragment : Fragment() {
         }
 
         // Listener for button used to capture photo
+        // disabled for now. I don't need it.
+        /*
         cameraUiContainerBinding?.cameraCaptureButton?.setOnClickListener {
             takePhotoOnce()
         }
-
+        */
 
 
         // Listener for button used to view the most recent photo

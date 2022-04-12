@@ -26,6 +26,7 @@
 
 
     <ImageButton
+        android:visibility="invisible"
         android:id="@+id/camera_capture_button"
         android:layout_width="@dimen/round_button_large"
         android:layout_height="@dimen/round_button_large"
