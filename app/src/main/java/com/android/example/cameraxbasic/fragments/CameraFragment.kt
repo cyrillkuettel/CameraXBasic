@@ -95,8 +95,9 @@ class CameraFragment : Fragment() {
     private var QRCodeWaitingTime: Int = 5000
     private var lastTime: Long = 0
 
+    // TODO:
+    // remove this in the final act. This is just for debugging.
     private var dataBaseThread: Thread = clearAllTablesThread()
-    private var writeQRToDatabaseThread: Thread? = null
 
     val queue = LinkedBlockingQueue<Long>()
 
@@ -202,13 +203,6 @@ class CameraFragment : Fragment() {
     @SuppressLint("MissingPermission")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // only for debugging: clear database before starting
-        if (!dataBaseThread.isAlive) {
-            dataBaseThread = clearAllTablesThread()
-            dataBaseThread.start()
-        } else {
-            Log.e(TAG, "Database thread is already alive.")
-        }
 
 
         // Initialize our background executor
