@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 
+plugins {
+    // https://www.geeksforgeeks.org/how-to-hide-api-and-secret-keys-in-android-studio/
+    id 'com.google.secrets_gradle_plugin' version '0.4'
+}
+
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 apply plugin: "androidx.navigation.safeargs"
+
 
 android {
     compileSdkVersion 31

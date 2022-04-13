@@ -89,6 +89,10 @@
                 android:resource="@xml/file_paths"/>
         </provider>
 
+        <meta-data
+            android:name="keyValue"
+            android:value="${KEY}"/>
+
     </application>
 
 </manifest>
