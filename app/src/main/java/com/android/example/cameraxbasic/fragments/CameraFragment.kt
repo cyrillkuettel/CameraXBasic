@@ -188,7 +188,6 @@ class CameraFragment : Fragment() {
     private fun clearAllTablesThread() : Thread {
         Log.i(TAG, "clearAllTablesThread")
         return object : Thread("clearAllTables") {
-
             override fun run() {
                 try {
                     val db = context?.let { it -> getDatabase(it) }
@@ -385,26 +384,30 @@ class CameraFragment : Fragment() {
         }
 
 
-        // another idea would be to launch the takePhotoOnce() here which then returns a value.
-        // This would probably be blocking.
-
         // The Image URI will be added a later point thus for now is set to 'not-populated'
+        // another idea would be to launch the takePhotoOnce() here which then returns a value.
+        // that value can then be used to create the Plant Object, instead of 'not-populated'
+        // This seems to be a much cleaner solution, but it's probably blocking
+
         val plant = qrCode?.let { it1 -> Plant(it1, "not-populated") }
 
-        val _id = plantDao?.insert(plant) ?: -1L
+        val insert = plantDao?.insert(plant)
+        val _id = if (insert != null) { insert }
+        else {
+            Log.d(TAG, "Somehow failed to obtain id from inserted plant object. ")
+            -1L
+        }
 
         allPlants = plantDao?.getAll() ?: Collections.emptyList()
 
-        //debugging
+        // only for debugging, remove this block:
         if (allPlants.isNotEmpty()) {
             Log.d(TAG, "Inserted plant object with qrCode. Printing qrString")
             Log.d(TAG, allPlants[0].qrString)
         } else {
             Log.d(TAG, "plants list empty!")
         }
-        if (_id == -1L) {
-            Log.d(TAG, "Somehow failed to obtain id from inserted plant object. ")
-        }
+
         return _id
 
     }

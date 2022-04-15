@@ -23,13 +23,13 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.android.example.cameraxbasic.databinding.ActivityMainBinding
+import com.android.example.cameraxbasic.identification.RetroFitWrapper
 import java.io.File
 
 const val KEY_EVENT_ACTION = "key_event_action"
@@ -49,14 +49,20 @@ class MainActivity : AppCompatActivity() {
         activityMainBinding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(activityMainBinding.root)
 
-        // get api key from Manifest which gets it from local.properties
+
+        val api = RetroFitWrapper(getAPIKey())
+        api.requestPlantIdentification()
+    }
+
+    private fun getAPIKey() : String {
         val applicationInfo: ApplicationInfo = applicationContext.packageManager
             .getApplicationInfo(applicationContext.packageName, PackageManager.GET_META_DATA)
-        val value = applicationInfo.metaData["keyValue"]
-        val key = value.toString()
-        Toast.makeText(applicationContext,key,Toast.LENGTH_LONG).show()
-
+        val key = applicationInfo.metaData["plantapi"]
+        return key.toString()
     }
+
+
+
 
     override fun onResume() {
         super.onResume()
@@ -77,8 +83,6 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onKeyDown(keyCode, event)
         }
-
-
     }
 
     override fun onBackPressed() {
@@ -89,7 +93,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             super.onBackPressed()
         }
-
     }
 
     companion object {

@@ -26,6 +26,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
 import com.android.example.cameraxbasic.R
+import com.android.example.cameraxbasic.identification.RetroFitWrapper
 
 private const val PERMISSIONS_REQUEST_CODE = 10
 private val PERMISSIONS_REQUIRED = arrayOf(Manifest.permission.CAMERA)

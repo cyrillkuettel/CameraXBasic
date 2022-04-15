@@ -26,8 +26,11 @@
     <!-- Declare features -->
     <uses-feature android:name="android.hardware.camera" />
 
-    <!-- Declare permissions -->
+
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:name=".MainApplication"
@@ -90,7 +93,7 @@
         </provider>
 
         <meta-data
-            android:name="keyValue"
+            android:name="plantapi"
             android:value="${KEY}"/>
 
     </application>
