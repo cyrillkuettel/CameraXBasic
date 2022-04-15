@@ -90,7 +90,6 @@ dependencies {
     def roomVersion = '2.5.0-alpha01'
     implementation "androidx.room:room-ktx:$roomVersion"
     kapt "androidx.room:room-compiler:$roomVersion"
-    // implementation "androidx.room:room-coroutines:${roomVersion}"    https://stackoverflow.com/questions/70527091/android-studio-kotlin-room-database-error
 
     androidTestImplementation "androidx.room:room-testing:$roomVersion"
 
