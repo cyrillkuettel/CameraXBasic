@@ -1,3 +1,10 @@
+# What is this?
+This is a project that's build on top of the official [CameraXBasic](https://github.com/android/camera-samples/tree/main/CameraXBasic) project from [camera-samples](https://github.com/android/camera-samples/)
+
+* I added a QR-Code detector using [ImageAnalyzer](https://developer.android.com/training/camerax/analyze). 
+* Then I added Retrofit in order to start API-Calls with captured images.
+* As soon as it worked, I integrated the code to my main project, [ecstatic-pilot](https://github.com/cyrillkuettel/ecstatic-pilot)
+
 # CameraXbasic
 
 CameraXbasic aims to demonstrate how to use CameraX APIs written in Kotlin.
